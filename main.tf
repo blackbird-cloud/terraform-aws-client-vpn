@@ -1,3 +1,4 @@
+# https://aws.amazon.com/blogs/security/authenticate-aws-client-vpn-users-with-aws-single-sign-on/
 resource "aws_ec2_client_vpn_endpoint" "vpn" {
   description            = var.name
   server_certificate_arn = var.server_certificate_arn
