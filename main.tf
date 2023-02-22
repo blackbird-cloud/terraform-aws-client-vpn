@@ -18,10 +18,9 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
     cloudwatch_log_stream = var.cloudwatch_log_stream_name
   }
 
-  dns_servers = [
-    "10.0.0.2",
-    aws_route53_resolver_endpoint.vpn_dns.ip_address.*.ip[1]
-  ]
+  dns_servers = concat(var.dns_servers, [
+    aws_route53_resolver_endpoint.vpn_dns.ip_address[*].ip[1]
+  ])
 
   tags = var.tags
 }

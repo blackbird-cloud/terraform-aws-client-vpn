@@ -39,6 +39,7 @@
 | <a name="input_client_cidr_block"></a> [client\_cidr\_block](#input\_client\_cidr\_block) | CIDR Block used for assigning IP's to clients, must not overlap with any of the connected networks. | `string` | n/a | yes |
 | <a name="input_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#input\_cloudwatch\_log\_group\_name) | (Optional) CloudWatch log group name for VPN connection logging. | `string` | `""` | no |
 | <a name="input_cloudwatch_log_stream_name"></a> [cloudwatch\_log\_stream\_name](#input\_cloudwatch\_log\_stream\_name) | (Optional) CloudWatch log stream name for VPN connection logging. | `string` | `""` | no |
+| <a name="input_dns_servers"></a> [dns\_servers](#input\_dns\_servers) | (Optional) Information about the DNS servers to be used for DNS resolution. A Client VPN endpoint can have up to two DNS servers. If no DNS server is specified, the DNS address of the connecting device is used. | `list(string)` | `[]` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name of the VPN | `string` | n/a | yes |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets | `list(string)` | n/a | yes |
 | <a name="input_server_certificate_arn"></a> [server\_certificate\_arn](#input\_server\_certificate\_arn) | ARN of the ACM certificate the server will use. | `string` | n/a | yes |

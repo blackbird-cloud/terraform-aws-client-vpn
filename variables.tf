@@ -66,7 +66,13 @@ variable "vpc_id" {
 }
 
 variable "split_tunnel" {
-  default     =  false
-  type        = bool  
+  default     = false
+  type        = bool
   description = "To split the VPN tunnel, or not, defaults to false"
+}
+
+variable "dns_servers" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) Information about the DNS servers to be used for DNS resolution. A Client VPN endpoint can have up to two DNS servers. If no DNS server is specified, the DNS address of the connecting device is used."
 }
