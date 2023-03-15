@@ -1,39 +1,3 @@
-# https://aws.amazon.com/blogs/security/authenticate-aws-client-vpn-users-with-aws-single-sign-on/
-resource "aws_ec2_client_vpn_endpoint" "vpn" {
-  description            = var.name
-  server_certificate_arn = var.server_certificate_arn
-  client_cidr_block      = var.client_cidr_block
-  self_service_portal    = "enabled"
-  split_tunnel           = var.split_tunnel
-  transport_protocol     = "tcp"
-
-  authentication_options {
-    type                           = "federated-authentication"
-    saml_provider_arn              = aws_iam_saml_provider.vpn.arn
-    self_service_saml_provider_arn = aws_iam_saml_provider.vpn_portal.arn
-  }
-
-  connection_log_options {
-    enabled               = var.cloudwatch_log_group_name != "" && var.cloudwatch_log_stream_name != ""
-    cloudwatch_log_group  = var.cloudwatch_log_group_name
-    cloudwatch_log_stream = var.cloudwatch_log_stream_name
-  }
-
-  dns_servers = concat(var.dns_servers, [
-    aws_route53_resolver_endpoint.vpn_dns.ip_address[*].ip[1]
-  ])
-
-  tags = var.tags
-}
-
-resource "aws_ec2_client_vpn_network_association" "associations" {
-  for_each = toset(var.private_subnets)
-
-  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
-  subnet_id              = each.key
-  security_groups        = [module.sg.security_group_id]
-}
-
 locals {
   routes = distinct(compact([
     for auth_rule in var.auth_rules : auth_rule.cidr != var.vpc_cidr_block ? auth_rule.cidr : null
@@ -63,6 +27,83 @@ locals {
       ]
     )
   )
+}
+
+module "sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "4.8.0"
+
+  vpc_id      = var.vpc_id
+  name        = "${var.name}-sg"
+  description = "Security group for ${var.name} VPN"
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      description = "Client VPN"
+      cidr_blocks = "0.0.0.0/0"
+    }
+  ]
+  egress_with_cidr_blocks = [
+    {
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      description = "Client VPN"
+      cidr_blocks = "0.0.0.0/0"
+    },
+  ]
+  tags = var.tags
+}
+
+resource "aws_iam_saml_provider" "vpn" {
+  name                   = "${var.name}-vpn"
+  saml_metadata_document = var.vpn_saml_metadata
+  tags                   = var.tags
+}
+
+resource "aws_iam_saml_provider" "vpn_portal" {
+  name                   = "${var.name}-vpn-portal"
+  saml_metadata_document = var.vpn_portal_saml_metadata
+  tags                   = var.tags
+}
+
+# https://aws.amazon.com/blogs/security/authenticate-aws-client-vpn-users-with-aws-single-sign-on/
+resource "aws_ec2_client_vpn_endpoint" "vpn" {
+  description            = var.name
+  server_certificate_arn = var.server_certificate_arn
+  client_cidr_block      = var.client_cidr_block
+  self_service_portal    = "enabled"
+  split_tunnel           = var.split_tunnel
+  transport_protocol     = "tcp"
+
+  authentication_options {
+    type                           = "federated-authentication"
+    saml_provider_arn              = aws_iam_saml_provider.vpn.arn
+    self_service_saml_provider_arn = aws_iam_saml_provider.vpn_portal.arn
+  }
+
+  connection_log_options {
+    enabled               = var.cloudwatch_log_group_name != "" && var.cloudwatch_log_stream_name != ""
+    cloudwatch_log_group  = var.cloudwatch_log_group_name
+    cloudwatch_log_stream = var.cloudwatch_log_stream_name
+  }
+
+  dns_servers = concat(var.dns_servers, [
+    for ip_address in aws_route53_resolver_endpoint.vpn_dns.ip_address : ip_address.ip
+  ])
+  security_group_ids = [module.sg.security_group_id]
+  vpc_id             = var.vpc_id
+
+  tags = var.tags
+}
+
+resource "aws_ec2_client_vpn_network_association" "associations" {
+  for_each = toset(var.private_subnets)
+
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
+  subnet_id              = each.key
 }
 
 resource "aws_ec2_client_vpn_route" "routes" {
@@ -108,4 +149,19 @@ resource "aws_ec2_client_vpn_authorization_rule" "internet" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
   target_network_cidr    = "0.0.0.0/0"
   description            = "internet"
+}
+
+# https://aws.amazon.com/premiumsupport/knowledge-center/client-vpn-how-dns-works-with-endpoint/
+# https://docs.aws.amazon.com/vpn/latest/clientvpn-user/linux-troubleshooting.html
+resource "aws_route53_resolver_endpoint" "vpn_dns" {
+  name               = "${var.name}-dns-access"
+  direction          = "INBOUND"
+  security_group_ids = [module.sg.security_group_id]
+
+  dynamic "ip_address" {
+    for_each = { for subnet in var.private_subnets : subnet => subnet }
+    content {
+      subnet_id = ip_address.value
+    }
+  }
 }
