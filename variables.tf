@@ -41,11 +41,6 @@ variable "cloudwatch_log_stream_name" {
   default     = ""
 }
 
-variable "vpc_cidr_block" {
-  type        = string
-  description = "CIDR Block used to create the VPC that hosts the VPN."
-}
-
 variable "auth_rules" {
   type = list(object({
     cidr        = string

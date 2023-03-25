@@ -1,6 +1,11 @@
+data "aws_vpc" "selected" {
+  id = var.vpc_id
+}
+
 locals {
+  vpc_cidr_block = data.aws_vpc.selected.cidr_block
   routes = distinct(compact([
-    for auth_rule in var.auth_rules : auth_rule.cidr != var.vpc_cidr_block ? auth_rule.cidr : null
+    for auth_rule in var.auth_rules : auth_rule.cidr != local.vpc_cidr_block ? auth_rule.cidr : null
   ]))
   routes_per_subnet = toset(
     flatten(
@@ -31,7 +36,7 @@ locals {
 
 module "sg" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "4.8.0"
+  version = "4.17.1"
 
   vpc_id      = var.vpc_id
   name        = "${var.name}-sg"
@@ -151,12 +156,38 @@ resource "aws_ec2_client_vpn_authorization_rule" "internet" {
   description            = "internet"
 }
 
+module "resolver_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "4.17.1"
+
+  vpc_id      = var.vpc_id
+  name        = "${var.name}-dns-resolver"
+  description = "Security group for ${var.name} VPN"
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 53
+      to_port     = 53
+      protocol    = "tcp"
+      description = "DNS TCP"
+      cidr_blocks = "${var.client_cidr_block},${local.vpc_cidr_block}"
+    },
+    {
+      from_port   = 53
+      to_port     = 53
+      protocol    = "udp"
+      description = "DNS UDP"
+      cidr_blocks = "${var.client_cidr_block},${local.vpc_cidr_block}"
+    }
+  ]
+  tags = var.tags
+}
+
 # https://aws.amazon.com/premiumsupport/knowledge-center/client-vpn-how-dns-works-with-endpoint/
 # https://docs.aws.amazon.com/vpn/latest/clientvpn-user/linux-troubleshooting.html
 resource "aws_route53_resolver_endpoint" "vpn_dns" {
-  name               = "${var.name}-dns-access"
+  name               = "${var.name}-dns-resolver"
   direction          = "INBOUND"
-  security_group_ids = [module.sg.security_group_id]
+  security_group_ids = [module.resolver_sg.security_group_id]
 
   dynamic "ip_address" {
     for_each = { for subnet in var.private_subnets : subnet => subnet }
