@@ -90,7 +90,7 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
   }
 
   connection_log_options {
-    enabled               = var.cloudwatch_log_group_name != "" && var.cloudwatch_log_stream_name != ""
+    enabled               = var.cloudwatch_log_group_name != "" || var.cloudwatch_log_stream_name != ""
     cloudwatch_log_group  = var.cloudwatch_log_group_name
     cloudwatch_log_stream = var.cloudwatch_log_stream_name
   }
