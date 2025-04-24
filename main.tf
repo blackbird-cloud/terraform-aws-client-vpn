@@ -34,34 +34,6 @@ locals {
   )
 }
 
-module "sg" {
-  source  = "terraform-aws-modules/security-group/aws"
-  version = "4.17.1"
-
-  vpc_id      = var.vpc_id
-  name        = "${var.name}-sg"
-  description = "Security group for ${var.name} VPN"
-  ingress_with_cidr_blocks = [
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      description = "Client VPN"
-      cidr_blocks = "0.0.0.0/0"
-    }
-  ]
-  egress_with_cidr_blocks = [
-    {
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      description = "Client VPN"
-      cidr_blocks = "0.0.0.0/0"
-    },
-  ]
-  tags = var.tags
-}
-
 resource "aws_iam_saml_provider" "vpn" {
   name                   = "${var.name}-vpn"
   saml_metadata_document = var.vpn_saml_metadata
@@ -81,7 +53,8 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
   client_cidr_block      = var.client_cidr_block
   self_service_portal    = "enabled"
   split_tunnel           = var.split_tunnel
-  transport_protocol     = "tcp"
+  transport_protocol     = var.transport_protocol
+  vpn_port               = var.vpn_port
 
   authentication_options {
     type                           = "federated-authentication"
@@ -95,10 +68,13 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
     cloudwatch_log_stream = var.cloudwatch_log_stream_name
   }
 
-  dns_servers = concat(var.dns_servers, [
-    for ip_address in aws_route53_resolver_endpoint.vpn_dns.ip_address : ip_address.ip
-  ])
-  security_group_ids = [module.sg.security_group_id]
+  client_login_banner_options {
+    banner_text = var.client_login_banner_text
+    enabled     = var.client_login_banner_text != "" ? true : false
+  }
+
+  dns_servers        = var.dns_servers
+  security_group_ids = var.security_group_ids
   vpc_id             = var.vpc_id
 
   tags = var.tags
@@ -154,45 +130,4 @@ resource "aws_ec2_client_vpn_authorization_rule" "internet" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
   target_network_cidr    = "0.0.0.0/0"
   description            = "internet"
-}
-
-module "resolver_sg" {
-  source  = "terraform-aws-modules/security-group/aws"
-  version = "4.17.1"
-
-  vpc_id      = var.vpc_id
-  name        = "${var.name}-dns-resolver"
-  description = "Security group for ${var.name} VPN"
-  ingress_with_cidr_blocks = [
-    {
-      from_port   = 53
-      to_port     = 53
-      protocol    = "tcp"
-      description = "DNS TCP"
-      cidr_blocks = "${var.client_cidr_block},${local.vpc_cidr_block}"
-    },
-    {
-      from_port   = 53
-      to_port     = 53
-      protocol    = "udp"
-      description = "DNS UDP"
-      cidr_blocks = "${var.client_cidr_block},${local.vpc_cidr_block}"
-    }
-  ]
-  tags = var.tags
-}
-
-# https://aws.amazon.com/premiumsupport/knowledge-center/client-vpn-how-dns-works-with-endpoint/
-# https://docs.aws.amazon.com/vpn/latest/clientvpn-user/linux-troubleshooting.html
-resource "aws_route53_resolver_endpoint" "vpn_dns" {
-  name               = "${var.name}-dns-resolver"
-  direction          = "INBOUND"
-  security_group_ids = [module.resolver_sg.security_group_id]
-
-  dynamic "ip_address" {
-    for_each = { for subnet in var.private_subnets : subnet => subnet }
-    content {
-      subnet_id = ip_address.value
-    }
-  }
 }

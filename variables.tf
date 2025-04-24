@@ -71,3 +71,31 @@ variable "dns_servers" {
   default     = []
   description = "(Optional) Information about the DNS servers to be used for DNS resolution. A Client VPN endpoint can have up to two DNS servers. If no DNS server is specified, the DNS address of the connecting device is used."
 }
+
+variable "security_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "(Optional) List of security group IDs to associate with the Client VPN endpoint. If not specified, a new security group will be created."
+}
+
+variable "client_login_banner_text" {
+  type        = string
+  default     = ""
+  description = "(Optional) The text to display on the client login banner. If not specified, no banner is displayed."
+}
+
+variable "vpn_port" {
+  type        = number
+  default     = 443
+  description = "(Optional) The port to use for the VPN connection. Defaults to `443`."
+}
+
+variable "transport_protocol" {
+  type        = string
+  default     = "tcp"
+  validation {
+    condition     = contains(["tcp", "udp"], var.transport_protocol)
+    error_message = "The transport protocol must be either tcp or udp."
+  }
+  description = "(Optional) The transport protocol to use for the VPN connection. Defaults to `tcp`."
+}
