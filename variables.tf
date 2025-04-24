@@ -91,8 +91,8 @@ variable "vpn_port" {
 }
 
 variable "transport_protocol" {
-  type        = string
-  default     = "tcp"
+  type    = string
+  default = "tcp"
   validation {
     condition     = contains(["tcp", "udp"], var.transport_protocol)
     error_message = "The transport protocol must be either tcp or udp."
