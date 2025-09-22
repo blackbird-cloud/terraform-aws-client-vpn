@@ -1,3 +1,4 @@
+<!-- BEGIN_TF_DOCS -->
 # Terraform Aws Client Vpn Module
 Terraform module to create an AWS Client VPN
 
@@ -39,7 +40,7 @@ module "client_vpn" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.14.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5 |
 
 ## Resources
 
@@ -94,3 +95,4 @@ Checkout our other :point\_right: [terraform modules](https://registry.terraform
 ## Copyright
 
 Copyright © 2017-2025 [Blackbird Cloud](https://blackbird.cloud)
+<!-- END_TF_DOCS -->
