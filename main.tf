@@ -2,7 +2,27 @@ data "aws_vpc" "selected" {
   id = var.vpc_id
 }
 
+data "aws_ssoadmin_instances" "current" {
+  count = length(local.sso_group_names) > 0 ? 1 : 0
+}
+
+data "aws_identitystore_group" "sso_groups" {
+  for_each = toset(local.sso_group_names)
+
+  identity_store_id = tolist(data.aws_ssoadmin_instances.current[0].identity_store_ids)[0]
+
+  alternate_identifier {
+    unique_attribute {
+      attribute_path  = "DisplayName"
+      attribute_value = each.key
+    }
+  }
+}
+
 locals {
+  sso_group_names = distinct(flatten([
+    for auth_rule in var.auth_rules : auth_rule.group_names
+  ]))
   vpc_cidr_block = data.aws_vpc.selected.cidr_block
   routes = distinct(compact([
     for auth_rule in var.auth_rules : auth_rule.cidr != local.vpc_cidr_block ? auth_rule.cidr : null
@@ -21,15 +41,26 @@ locals {
   )
   auth_rules = toset(
     flatten(
-      [
-        for auth_rule in var.auth_rules : [
-          for group in auth_rule.groups : {
-            description = auth_rule.description
-            cidr        = auth_rule.cidr
-            group       = group
-          }
-        ]
-      ]
+      concat(
+        [
+          for auth_rule in var.auth_rules : [
+            for group in auth_rule.groups : {
+              description = auth_rule.description
+              cidr        = auth_rule.cidr
+              group       = group
+            }
+          ]
+        ],
+        [
+          for auth_rule in var.auth_rules : [
+            for group in auth_rule.group_names : {
+              description = auth_rule.description
+              cidr        = auth_rule.cidr
+              group       = data.aws_identitystore_group.sso_groups[group].id
+            }
+          ]
+        ],
+      )
     )
   )
 }

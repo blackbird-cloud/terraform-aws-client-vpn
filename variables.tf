@@ -44,10 +44,11 @@ variable "cloudwatch_log_stream_name" {
 variable "auth_rules" {
   type = list(object({
     cidr        = string
-    groups      = list(string)
+    groups      = optional(list(string), [])
+    group_names = optional(list(string), [])
     description = string
   }))
-  description = "List of CIDR blocks, and IDP groups to authorize access for."
+  description = "List of CIDR blocks, and IDP groups (SSO group IDs), or group names (AWS IAM Identity Center group names) to authorize access for."
 }
 
 variable "private_subnets" {
@@ -91,8 +92,8 @@ variable "vpn_port" {
 }
 
 variable "transport_protocol" {
-  type        = string
-  default     = "tcp"
+  type    = string
+  default = "tcp"
   validation {
     condition     = contains(["tcp", "udp"], var.transport_protocol)
     error_message = "The transport protocol must be either tcp or udp."
